@@ -23,4 +23,4 @@ jobs:
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "action@github.com"
-        git push --force https://may0212x:${{ secrets.GITEE_TOKEN }}@gitee.com/may0212x/denuvo.git main:master
+        git push --force https://may0212x:${{ secrets.GITEE_TOKEN }}@gitee.com/may0212x/rss.git main:master
