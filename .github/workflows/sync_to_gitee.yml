@@ -1,0 +1,26 @@
+name: Sync Updated JSON to Gitee
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'depotkeys.json'
+      - 'appaccesstokens.json'
+
+jobs:
+  sync-to-gitee:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 檢出 GitHub 代碼
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Git 強制同步到 Gitee
+      env:
+        GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      run: |
+        git config --global user.name "GitHub Action Bot"
+        git config --global user.email "action@github.com"
+        git push --force https://may0212x:${{ secrets.GITEE_TOKEN }}@gitee.com/may0212x/denuvo.git main:master
