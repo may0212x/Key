@@ -25,7 +25,7 @@ jobs:
 
     - name: 安裝 Python 必備依賴
       run: |
-        pip install requests pycryptodome eventemitter gevent protobuf steam
+        pip install requests pycryptodome eventemitter gevent protobuf==3.20.3 steam
 
     - name: 執行 1.py 進行數據加工與加密
       run: |
