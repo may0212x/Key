@@ -1,4 +1,4 @@
-name: Sync Updated JSON to Gitee
+name: Process JSON with Python and Sync to Gitee
 
 on:
   push:
@@ -7,9 +7,10 @@ on:
     paths:
       - 'depotkeys.json'
       - 'appaccesstokens.json'
+  workflow_dispatch: # ✨ 新增這一行，開啟 GitHub 後台手動執行按鈕
 
 jobs:
-  sync-to-gitee:
+  process-and-sync:
     runs-on: ubuntu-latest
     steps:
     - name: 檢出 GitHub 代碼
@@ -17,10 +18,31 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Git 強制同步到 Gitee
+    - name: 設定 Python 環境
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: 安裝 Python 必備依賴
+      run: |
+        pip install requests steam pycryptodome
+
+    - name: 執行 1.py 進行數據加工與加密
+      run: |
+        python 1.py
+
+    - name: 安全同步加工後的檔案到 Gitee
       env:
         GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "action@github.com"
-        git push --force https://may0212x:${{ secrets.GITEE_TOKEN }}@gitee.com/may0212x/rss.git main:master
+        
+        git add applist.json skipped_appids.json
+        git commit -m "🤖 Actions 自動加工: 更新 applist 與跳過名單" || echo "沒有新生成的 applist 需要提交"
+        git push origin main
+        
+        git remote add gitee https://may0212x:${{ secrets.GITEE_TOKEN }}@gitee.com/may0212x/denuvo.git
+        git fetch gitee master
+        git merge gitee/master --allow-unrelated-histories -m "🤖 自動合併 Gitee 歷史"
+        git push gitee main:master
