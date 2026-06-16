@@ -1,0 +1,77 @@
+name: Sync Mirror to Gitee
+
+on:
+  push:
+    branches:
+      - main  # 當 GitHub 收到來自 Hugging Face 的 main 推送時自動觸發
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout GitHub Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1 # 採用淺層克隆，秒殺級下載
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Pack and Compress Files
+      run: |
+        python -c "
+        import zipfile, hashlib, json, os
+        core_files = ['applist.json', 'depotkeys.json', 'appaccesstokens.json']
+        manifest = {}
+        
+        # 遍歷原始檔案進行極致壓縮
+        for f in core_files:
+            if os.path.exists(f):
+                zname = f.replace('.json', '.zip')
+                with zipfile.ZipFile(zname, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+                    zf.write(f, arcname=f)
+                
+                # 計算清單所需的 MD5 與檔案大小
+                with open(zname, 'rb') as zip_f:
+                    file_bytes = zip_f.read()
+                manifest[zname] = {
+                    'size_bytes': os.path.getsize(zname),
+                    'md5': hashlib.md5(file_bytes).hexdigest()
+                }
+                
+        # 寫入 Gitee 專用的 ZIP 規格更新清單
+        with open('update.json', 'w', encoding='utf-8') as uf:
+            json.dump({'files': manifest}, uf, ensure_ascii=False, indent=4)
+        "
+        # 🔴 核心安全：刪除本地的原始明文大 JSON，確保推送到 Gitee 的只有壓縮檔
+        rm -f applist.json depotkeys.json appaccesstokens.json
+
+    - name: Push Pure Build to Gitee
+      env:
+        # 從 GitHub Secrets 中動態載入隱藏的變數
+        G_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        G_REPO: ${{ secrets.GITEE_REPO }}
+      run: |
+        # 1. 在 Runner 記憶體中重組一個乾淨的、無歷史包袱的本地臨時 Git 倉庫
+        rm -rf .git
+        git init -b main
+        git config user.name "Gitee Sync Bot"
+        git config user.email "bot@gitee.com"
+        
+        # 2. 暫存並提交所有壓縮檔與清單
+        git add .
+        git commit -m "chore: gitee compressed build $(date '+%Y-%m-%d %H:%M:%S') [skip ci]"
+        
+        # 3. 放大 Git 的 HTTP 快取緩衝區至 500MB，徹底防範大檔案卡死
+        git config http.postBuffer 524288000
+        
+        # 4. 動態拼接出帶有認證權杖的隱密網址並強制推送覆蓋 Gitee
+        # 網址格式會變為: https://x-access-token:你的Token@gitee.com/用戶名/倉庫名.git
+        git remote add gitee "https://x-access-token:${G_TOKEN}@${G_REPO}"
+        
+        printenv G_REPO > /dev/null # 確保環境變數在記憶體中安全被解析
+        echo "🚀 正在透過 GitHub Actions 高速強推至 Gitee 鏡像倉庫..."
+        git push gitee main --force
+        echo "✅ Gitee 輕量化壓縮版同步完畢！"
