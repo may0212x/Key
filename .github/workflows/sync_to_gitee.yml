@@ -3,7 +3,7 @@ name: Sync Mirror to Gitee
 on:
   push:
     branches:
-      - main  # 當 GitHub 收到來自 Hugging Face 的 main 推送時自動觸發
+      - main  # 當 GitHub main 分支收到來自 Hugging Face 的推送時自動觸發
 
 jobs:
   build-and-push:
@@ -12,7 +12,7 @@ jobs:
     - name: Checkout GitHub Repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 1 # 採用淺層克隆，秒殺級下載
+        fetch-depth: 1 # 淺層克隆，極速下載
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -45,33 +45,32 @@ jobs:
         with open('update.json', 'w', encoding='utf-8') as uf:
             json.dump({'files': manifest}, uf, ensure_ascii=False, indent=4)
         "
-        # 🔴 核心安全：刪除本地的原始明文大 JSON，確保推送到 Gitee 的只有壓縮檔
+        # 核心安全：刪除本地的原始明文大 JSON，確保推送到 Gitee 的只有壓縮檔
         rm -f applist.json depotkeys.json appaccesstokens.json
 
     - name: Push Pure Build to Gitee
       env:
-        # 從 GitHub Secrets 中動態載入隱藏的變數
         G_TOKEN: ${{ secrets.GITEE_TOKEN }}
         G_REPO: ${{ secrets.GITEE_REPO }}
       run: |
-        # 1. 在 Runner 記憶體中重組一個乾淨的、無歷史包袱的本地臨時 Git 倉庫
+        # 1. 在記憶體中重組一個乾淨、無歷史包袱的本地臨時 Git 倉庫
         rm -rf .git
         git init -b main
         git config user.name "Gitee Sync Bot"
         git config user.email "bot@gitee.com"
         
-        # 2. 暫存並提交所有壓縮檔與清單
         git add .
         git commit -m "chore: gitee compressed build $(date '+%Y-%m-%d %H:%M:%S') [skip ci]"
         
-        # 3. 放大 Git 的 HTTP 快取緩衝區至 500MB，徹底防範大檔案卡死
+        # 2. 放大 Git 的 HTTP 快取緩衝區至 500MB，防止傳輸中斷
         git config http.postBuffer 524288000
         
-        # 4. 動態拼接出帶有認證權杖的隱密網址並強制推送覆蓋 Gitee
-        # 網址格式會變為: https://x-access-token:你的Token@gitee.com/用戶名/倉庫名.git
-        git remote add gitee "https://x-access-token:${G_TOKEN}@${G_REPO}"
+        # 3. 自動修剪可能誤填的 http:// 或 https://
+        CLEAN_REPO=$(echo "$G_REPO" | sed -e 's/https:\/\///g' -e 's/http:\/\///g')
         
-        printenv G_REPO > /dev/null # 確保環境變數在記憶體中安全被解析
+        # 4. 使用 Gitee 官方規定的 oauth2 作為萬用用戶名進行 HTTPS 驗證
+        git remote add gitee "https://oauth2:${G_TOKEN}@${CLEAN_REPO}"
+        
         echo "🚀 正在透過 GitHub Actions 高速強推至 Gitee 鏡像倉庫..."
         git push gitee main --force
         echo "✅ Gitee 輕量化壓縮版同步完畢！"
