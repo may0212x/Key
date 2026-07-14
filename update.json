@@ -1,16 +1,16 @@
 {
     "files": {
         "depotkeys.json": {
-            "size_bytes": 18007520,
-            "md5": "0b1abdc5d1656b34db224ea4055b5e17"
+            "size_bytes": 18007686,
+            "md5": "9189382b45426b86f6f30b77e59034a1"
         },
         "appaccesstokens.json": {
             "size_bytes": 302956,
             "md5": "3103fc79b4f3e36e609198fec676ac4c"
         },
         "applist.json": {
-            "size_bytes": 4451904,
-            "md5": "f1b892db5a515b025335213ace5bb69c"
+            "size_bytes": 4452144,
+            "md5": "d7dfa35fe7e6e0d6e88ef45553ed1e18"
         }
     }
 }
